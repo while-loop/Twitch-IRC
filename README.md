@@ -27,4 +27,4 @@ Future Updates / TODO
 
 License
 -------
-Twitch-IRC is licensed under the MIT license. See LICENSE.md for details.
+Twitch-IRC is licensed under the MIT license. See [LICENSE](LICENSE) for details.
