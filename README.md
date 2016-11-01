@@ -1,8 +1,6 @@
 Twitch-IRC
 =====
-
 Python Twitch.tv IRC library.
--------------------
 
 Features
 --------
