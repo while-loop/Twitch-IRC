@@ -7,9 +7,14 @@ Features
 - Modularized system
 - Callbacks for many behind the scene functions
 - Transparent Ping-Pong messaging
+- Complies with IRC Command & Message limit
 
 Installation
 ------------
+    pip install twitchirc
+Or
+
+    python setup.py install
 
 Basic Usage
 -----------
