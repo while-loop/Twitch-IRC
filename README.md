@@ -12,6 +12,9 @@ Features
 
 Installation
 ------------
+    pip install -e git+git://github.com/while-loop/Twitch-IRC.git#egg=twitchirc
+Or
+
     pip install twitchirc
 Or
 

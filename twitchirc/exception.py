@@ -10,6 +10,10 @@ class IllegalArgumentError(ValueError):
     pass
 
 
+class AuthenticationError(IRCException):
+    pass
+
+
 class APIError(Exception):
     """
         This exception gets raised whenever a non-200 status code was returned by the Twitch API.
