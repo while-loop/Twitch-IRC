@@ -4,10 +4,11 @@ Python Twitch.tv IRC library.
 
 Features
 --------
-- Modularized system
 - Callbacks for many behind the scene functions
 - Transparent Ping-Pong messaging
-- Complies with IRC Command & Message limit
+- Complies with Twitch IRC Command & Message (rate limits)[https://help.twitch.tv/customer/portal/articles/1302780-twitch-irc]
+    - 50 JOINs per 15 seconds
+    - 20 commands or messages per 30 seconds 
 
 Installation
 ------------
@@ -27,6 +28,10 @@ Future Updates / TODO
 - Handle Reconnection
 - Verbose error handling
 - Well tested and documented
+- Optional Mod only bot
+    - Mod only bots get an increase rate of 100 commands per 30 secs
+    - Need to enforce that the bot is a mod before sending message
+
 
 License
 -------
