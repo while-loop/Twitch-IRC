@@ -1,16 +1,16 @@
 import socket
+from json import loads
+from urllib2 import urlopen
 
-from twitchirc.exception import IRCError
+from twitchirc.exception import APIError
 
-TWITCH_CHAT_VIEWER_URL = 'http://tmi.twitch.tv/group/user/{channelName}/chatters'
+TWITCH_CHAT_VIEWER_URL = 'http://tmi.twitch.tv/group/user/{channel}/chatters'
 
 
 class IRC:
-    def __init__(self, oauthToken, clientID, port=6667, moddedSend=False, onPongCallback=None, onMessageCallack=None):
+    def __init__(self, oauthToken, port=6667, moddedSend=False, onPongCallback=None, onMessageCallack=None):
         if not oauthToken or (type(oauthToken) != str and type(oauthToken) != unicode):
-            raise IRCError("Invalid Oauth token")
-        if not clientID:
-            raise IRCError("Invalid Client ID")
+            raise TypeError("Invalid Oauth token")
 
         # Networks
         self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -18,7 +18,6 @@ class IRC:
 
         # Twitch Info
         self._oauthToken = oauthToken
-        self._clientID = clientID
 
         # Callbacks
         self._onPongCallback = onPongCallback if onPongCallback else self.pong
@@ -56,13 +55,38 @@ class IRC:
     """
 
     def joinChannels(self, channels):
-        pass
+        if type(channels) != list:
+            raise TypeError("Channels must be type list")
+
+        for channel in channels:
+            cmd = "JOIN #{channel}\r\n".format(channel=channel)
+            if self._moddedSend:
+                self._conn.send(cmd)
+            else:
+                # TODO add to queue
+                pass
 
     def leaveChannels(self, channels):
-        pass
+        if type(channels) != list:
+            raise TypeError("Channels must be type list")
 
-    def getViewers(self, channelName):
-        pass
+        for channel in channels:
+            cmd = "PART #{channel}\r\n".format(channel=channel)
+            if self._moddedSend:
+                self._conn.send(cmd)
+            else:
+                # TODO add to queue
+                pass
+
+    def getViewers(self, channel):
+        try:
+            data = urlopen(TWITCH_CHAT_VIEWER_URL.format(channel=channel)).read().decode('utf-8')
+        except:
+            raise APIError('Unable to connect Twitch API')
+
+        data = loads(data)
+        ret = {'viewers': data.pop('chatters'), 'count': data['chatter_count']}
+        return ret
 
     """
     -----------------------------------------------------------------------------------------------
@@ -76,12 +100,22 @@ class IRC:
     def getSendQueue(self):
         pass
 
-    def sendMessage(self, channelName, msg, hasCLRF=False):
-        if not
-        pass
+    def sendMessage(self, channelName, msg):
+        if msg[:len(msg) - 3] != "\r\n":
+            msg += "\r\n"
+
+        formattedMsg = 'PRIVMSG #{channelName} :{msg}'.format(channelName=channelName, msg=msg)
+        self._sendRawCommand(formattedMsg)
+
+    def sendCommand(self, cmd):
+        self._sendRawCommand(cmd)
 
     def _sendRawCommand(self, cmd):
-        pass
+        if self._moddedSend:
+            self._conn.send(cmd)
+        else:
+            # add to queue
+            pass
 
     """
     -----------------------------------------------------------------------------------------------
