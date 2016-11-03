@@ -4,6 +4,7 @@ import socket
 import sys
 import time
 from json import loads
+from threading import Thread
 from urllib2 import urlopen
 
 from enum import Enum
@@ -16,7 +17,7 @@ TWITCH_IRC_PORT = 6667
 
 State = Enum("CONNECTED", "DISCONNECTED", "RECONNECTING")
 
-REGEXS = {"onMessage": "^:(\b\w+)!\1@\1.tmi.twitch.tv PRIVMSG #(\b\w+) :(.*)$",
+REGEXS = {"onMessage": "^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.*)$",
           "onCommand": "^:(\b\w+)!\1@\1.tmi.twitch.tv PRIVMSG #(\b\w+) :{shebang}(\w*)\s?(.*)$",
           "onJoin": "^:(\b\w+)!\1@\1.tmi.twitch.tv JOIN #(\b\w+)$",
           "onPart": "^:(\b\w+)!\1@\1.tmi.twitch.tv PART #(\b\w+)$",
@@ -70,6 +71,9 @@ class IRC:
         self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._state = State.DISCONNECTED
 
+        # Threads
+        self._recvThread = Thread(target=self._recvWorker)
+
         # lets the dev directly send all outgoing messages bypassing the queues, excluding ping-pongs
         self._overwriteSend = overwriteSend
         self._cmdShebang = cmdShebang
@@ -114,7 +118,7 @@ class IRC:
         self._conn.settimeout(timeout)
         start = time.time()
         try:
-            self._conn.connect(host, port)
+            self._conn.connect((host, port))
             timeout -= (time.time() - start)  # check how long it took to connect and subtract
         except socket.error, e:
             print >> sys.stderr, 'Cannot connect to Twitch IRC server ({}:{}).'.format(host, port)
@@ -147,7 +151,11 @@ class IRC:
                 self._conn.send('CAP REQ :twitch.tv/membership\r\n')
 
                 # Enables custom raw commands
-                self._conn.send('CAP REQ :twitch.tv/commands')
+                self._conn.send('CAP REQ :twitch.tv/commands\r\n')
+
+                self._conn.recv(1024)
+                time.sleep(.5)
+                self._recvThread.start()
                 return
 
             try:
@@ -189,7 +197,8 @@ class IRC:
                 line.append(c)
 
         size = len(line) - 1
-        if line[size] == '\r':  # IRC newlines are \r\n
+
+        if size > 0 and line[size] == '\r':  # IRC newlines are \r\n
             del line[size]
 
         return ''.join(line)
@@ -304,13 +313,23 @@ class IRC:
     -----------------------------------------------------------------------------------------------
     """
 
-    def addCallbacks(self, onPong=None, onMessage=None):
-        pass
+    def addCallbacks(self, onMessage=None, onCommand=None, onJoin=None, onPart=None, onMode=None, onNotice=None,
+                     onTargetHost=None, onClearChat=None, onUserNotice=None):
+        self._callbacks['onCommand'] = onCommand
+        self._callbacks['onMessage'] = onMessage
+        self._callbacks['onJoin'] = onJoin
+        self._callbacks['onPart'] = onPart
+        self._callbacks['onMode'] = onMode
+        self._callbacks['onNotice'] = onNotice
+        self._callbacks['onTargetHost'] = onTargetHost
+        self._callbacks['onClearChat'] = onClearChat
+        self._callbacks['onUserNotice'] = onUserNotice
 
     def _onResponse(self, line):
+        print line
         for key, regex in REGEXS.iteritems():
             if key == "onCommand":
-                regex = re.compile(regex.format(cmdShebang=self._cmdShebang))
+                regex = re.compile(regex.format(shebang=self._cmdShebang))
             else:
                 regex = re.compile(regex)
 

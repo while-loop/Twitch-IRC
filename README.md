@@ -6,6 +6,7 @@ Features
 --------
 - Callbacks for many behind the scene functions
 - Transparent Ping-Pong messaging
+- Transparent Server reconnection
 - Complies with Twitch IRC Command & Message [rate limits](https://help.twitch.tv/customer/portal/articles/1302780-twitch-irc)
     - 50 JOINs per 15 seconds
     - 20 commands or messages per 30 seconds 
