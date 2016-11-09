@@ -5,6 +5,8 @@ from optparse import OptionParser
 from types import FunctionType
 
 import sys
+
+import time
 from mock import MagicMock
 
 from twitchirc.irc import IRC
@@ -29,6 +31,7 @@ class TestCallbacks(unittest.TestCase):
         self.login = ":tmi.twitch.tv 001 " + TestCallbacks.USER + "\r\n :tmi.twitch.tv 376 " + TestCallbacks.USER
 
     def tearDown(self):
+        time.sleep(.005)  # allow the callbacks to be executed
         self.chat.close()
 
     def setAndConnect(self, msg):
