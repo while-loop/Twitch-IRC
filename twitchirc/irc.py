@@ -31,33 +31,35 @@ REGEXS = {"onMessage": r"^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.
 
 
 class IRC:
-    SUBS_ON = "subs_on"
-    SUBS_OFF = "subs_off"
-    ALREADY_SUBS_ON = "already_subs_on"
-    ALREADY_SUBS_OFF = "already_subs_off"
-    SLOW_ON = "slow_on"
-    SLOW_OFF = "slow_off"
-    R9K_ON = "r9k_on"
-    R9K_OFF = "r9k_off"
-    ALREADY_R9K_ON = "already_r9k_on"
-    ALREADY_R9K_OFF = "already_r9k_off"
-    HOST_ON = "host_on"
-    HOST_OFF = "host_off"
-    BAD_HOST_HOSTING = "bad_host_hosting"
-    HOSTS_REMAINING = "hosts_remaining"
-    EMOTE_ONLY_ON = "emote_only_on"
-    EMOTE_ONLY_OFF = "emote_only_off"
-    ALREADY_EMOTE_ONLY_ON = "already_emote_only_on"
-    ALREADY_EMOTE_ONLY_OFF = "already_emote_only_off"
-    MSG_CHANNEL_SUSPENDED = "msg_channel_suspended"
-    TIMEOUT_SUCCESS = "timeout_success"
-    BAN_SUCCESS = "ban_success"
-    UNBAN_SUCCESS = "unban_success"
-    BAD_UNBAN_NO_BAN = "bad_unban_no_ban"
-    ALREADY_BANNED = "already_banned"
-    UNRECOGNIZED_CMD = "unrecognized_cmd"
+    ID_SUBS_ON = "subs_on"
+    ID_SUBS_OFF = "subs_off"
+    ID_ALREADY_SUBS_ON = "already_subs_on"
+    ID_ALREADY_SUBS_OFF = "already_subs_off"
+    ID_SLOW_ON = "slow_on"
+    ID_SLOW_OFF = "slow_off"
+    ID_R9K_ON = "r9k_on"
+    ID_R9K_OFF = "r9k_off"
+    ID_ALREADY_R9K_ON = "already_r9k_on"
+    ID_ALREADY_R9K_OFF = "already_r9k_off"
+    ID_HOST_ON = "host_on"
+    ID_HOST_OFF = "host_off"
+    ID_BAD_HOST_HOSTING = "bad_host_hosting"
+    ID_HOSTS_REMAINING = "hosts_remaining"
+    ID_EMOTE_ONLY_ON = "emote_only_on"
+    ID_EMOTE_ONLY_OFF = "emote_only_off"
+    ID_ALREADY_EMOTE_ONLY_ON = "already_emote_only_on"
+    ID_ALREADY_EMOTE_ONLY_OFF = "already_emote_only_off"
+    ID_MSG_CHANNEL_SUSPENDED = "msg_channel_suspended"
+    ID_TIMEOUT_SUCCESS = "timeout_success"
+    ID_BAN_SUCCESS = "ban_success"
+    ID_UNBAN_SUCCESS = "unban_success"
+    ID_BAD_UNBAN_NO_BAN = "bad_unban_no_ban"
+    ID_ALREADY_BANNED = "already_banned"
+    ID_UNRECOGNIZED_CMD = "unrecognized_cmd"
     OP = "+"
     DEOP = "-"
+    JOIN = "JOIN"
+    PART = "PART"
 
     def __init__(self, oauthToken, username, overwriteSend=False, onResponse=None, onPing=None, onReconnect=None,
                  cmdShebang="!"):
@@ -94,8 +96,7 @@ class IRC:
         # callbacks if the dev did not override onResponse
         self._callbacks['onCommand'] = None
         self._callbacks['onMessage'] = None
-        self._callbacks['onJoin'] = None
-        self._callbacks['onPart'] = None
+        self._callbacks['onJoinPart'] = None
         self._callbacks['onMode'] = None
         self._callbacks['onNotice'] = None
         self._callbacks['onTargetHost'] = None
@@ -312,12 +313,11 @@ class IRC:
     -----------------------------------------------------------------------------------------------
     """
 
-    def addCallbacks(self, onMessage=None, onCommand=None, onJoin=None, onPart=None, onMode=None, onNotice=None,
+    def addCallbacks(self, onMessage=None, onCommand=None, onJoinPart=None, onMode=None, onNotice=None,
                      onHostTarget=None, onClearChat=None, onUserNotice=None):
         self._callbacks['onCommand'] = onCommand
         self._callbacks['onMessage'] = onMessage
-        self._callbacks['onJoin'] = onJoin
-        self._callbacks['onPart'] = onPart
+        self._callbacks['onJoinPart'] = onJoinPart
         self._callbacks['onMode'] = onMode
         self._callbacks['onNotice'] = onNotice
         self._callbacks['onHostTarget'] = onHostTarget
@@ -344,15 +344,16 @@ class IRC:
                     if self._callbacks["onCommand"]:
                         # channel, viewer, command, value
                         # value may be None
-                        self._callbacks["onCommand"](self, match.group(2), match.group(1), match.group(3), match.group(4))
+                        self._callbacks["onCommand"](self, match.group(2), match.group(1), match.group(3),
+                                                     match.group(4))
                 elif key == "onJoin":
-                    if self._callbacks["onJoin"]:
-                        # channel, viewer
-                        self._callbacks["onJoin"](self, match.group(2), match.group(1))
+                    if self._callbacks["onJoinPart"]:
+                        # channel, viewer, state
+                        self._callbacks["onJoinPart"](self, match.group(2), match.group(1), IRC.JOIN)
                 elif key == "onPart":
-                    if self._callbacks["onPart"]:
-                        # channel, viewer
-                        self._callbacks["onPart"](self, match.group(2), match.group(1))
+                    if self._callbacks["onJoinPart"]:
+                        # channel, viewer, state
+                        self._callbacks["onJoinPart"](self, match.group(2), match.group(1), IRC.PART)
                 elif key == "onMode":
                     if self._callbacks["onMode"]:
                         # channel, viewer, opcode
