@@ -17,15 +17,16 @@ TWITCH_IRC_PORT = 6667
 
 State = Enum("CONNECTED", "DISCONNECTED", "RECONNECTING")
 
-REGEXS = {"onMessage": "^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.*)$",
-          "onCommand": "^:(\b\w+)!\1@\1.tmi.twitch.tv PRIVMSG #(\b\w+) :{shebang}(\w*)\s?(.*)$",
-          "onJoin": "^:(\b\w+)!\1@\1.tmi.twitch.tv JOIN #(\b\w+)$",
-          "onPart": "^:(\b\w+)!\1@\1.tmi.twitch.tv PART #(\b\w+)$",
-          "onMode": "^:jtv\s+MODE\s+#(\w+)\s+(-|\+)o\s+(.*)$",
-          "onNotice": "^@msg-id=(\w*)\s+:tmi\.twitch\.tv\s+NOTICE\s+#(\w+)\s+:(.*)$",
-          "onTargetHost": "^:tmi\.twitch\.tv\s+HOSTTARGET\s+#(\w+)\s+:(\w+)\s+(\d+)$",
-          "onClearChat": "^:tmi\.twitch\.tv\s+CLEARCHAT\s+#(\w+)(\s+:(\w+))?$",
-          "onUserNotice": "^:tmi\.twitch\.tv\s+USERNOTICE\s+#(\w+)\s+:(\w+)$"
+REGEXS = {"onMessage": r"^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.*)$",
+          "onCommand": r"^:(\b\w+)!\1@\1.tmi.twitch.tv PRIVMSG #(\b\w+) :{shebang}(\w*)\s?(.*)$",
+          "onJoin": r"^:(\b\w+)!\1@\1.tmi.twitch.tv JOIN #(\b\w+)$",
+          "onPart": r"^:(\b\w+)!\1@\1.tmi.twitch.tv PART #(\b\w+)$",
+          "onMode": r"^:jtv\s+MODE\s+#(\w+)\s+(-|\+)o\s+(.*)$",
+          "onNotice": r"^@msg-id=(\w*)\s+:tmi\.twitch\.tv\s+NOTICE\s+#(\w+)\s+:(.*)$",
+          "onHostTarget": r"^:tmi\.twitch\.tv\s+HOSTTARGET\s+#(\w+)\s+:(\w+)\s+(\d+)$",
+          "onHostTargetStop": r"^:tmi\.twitch\.tv\s+HOSTTARGET\s+#(\w+)\s+:-\s+(\d+)$",
+          "onClearChat": r"^:tmi\.twitch\.tv\s+CLEARCHAT\s+#(\w+)(\s+:(\w+))?$",
+          "onUserNotice": r"^:tmi\.twitch\.tv\s+USERNOTICE\s+#(\w+)\s+:(.*)$"
           }
 
 
@@ -154,7 +155,6 @@ class IRC:
                 self._conn.send('CAP REQ :twitch.tv/commands\r\n')
 
                 self._conn.recv(1024)
-                time.sleep(.5)
                 self._recvThread.start()
                 return
 
@@ -189,7 +189,13 @@ class IRC:
     def _readline(self):
         line = []
         while True:
-            c = self._conn.recv(1)
+            c = None
+            try:
+                c = self._conn.recv(1)
+            except StopIteration:  # fake the type of request when running tests
+                self._state = State.DISCONNECTED
+                line = list("PING :tmi.twitch.tv")
+                break
 
             if c == '\n':
                 break
@@ -202,6 +208,10 @@ class IRC:
             del line[size]
 
         return ''.join(line)
+
+    def close(self):
+        self._state = State.DISCONNECTED  # should also close recv thread
+        self._conn.close()
 
     """
     -----------------------------------------------------------------------------------------------
@@ -314,22 +324,24 @@ class IRC:
     """
 
     def addCallbacks(self, onMessage=None, onCommand=None, onJoin=None, onPart=None, onMode=None, onNotice=None,
-                     onTargetHost=None, onClearChat=None, onUserNotice=None):
+                     onHostTarget=None, onClearChat=None, onUserNotice=None):
         self._callbacks['onCommand'] = onCommand
         self._callbacks['onMessage'] = onMessage
         self._callbacks['onJoin'] = onJoin
         self._callbacks['onPart'] = onPart
         self._callbacks['onMode'] = onMode
         self._callbacks['onNotice'] = onNotice
-        self._callbacks['onTargetHost'] = onTargetHost
+        self._callbacks['onHostTarget'] = onHostTarget
         self._callbacks['onClearChat'] = onClearChat
         self._callbacks['onUserNotice'] = onUserNotice
 
     def _onResponse(self, line):
-        print line
-        for key, regex in REGEXS.iteritems():
+        # print line
+        for key in sorted(REGEXS.iterkeys()):  # sort because onMessage replaces onCommand
+            regex = REGEXS[key]
             if key == "onCommand":
-                regex = re.compile(regex.format(shebang=self._cmdShebang))
+                regex = re.compile(
+                    regex.format(shebang=self._cmdShebang))  # TODO fix shebangs that create regex errors (^, \\, etc)
             else:
                 regex = re.compile(regex)
 
@@ -361,17 +373,26 @@ class IRC:
                     if self._callbacks["onNotice"]:
                         # channel, msg-id, msg
                         self._callbacks["onNotice"](match.group(2), match.group(1), match.group(3))
-                elif key == "onTargetHost":
-                    if self._callbacks["onTargetHost"]:
+                elif key == "onHostTarget":
+                    if self._callbacks["onHostTarget"]:
                         # hosting_channel, target_channel, amount
-                        # target_channel = '-' when hosting stops
-                        self._callbacks["onTargetHost"](match.group(1), match.group(2), match.group(3))
+                        # target_channel = None when hosting stops
+                        amount = int(match.group(3))
+                        self._callbacks["onHostTarget"](match.group(1), match.group(2), amount)
+                elif key == "onHostTargetStop":
+                    if self._callbacks["onHostTarget"]:
+                        # hosting_channel, target_channel, amount
+                        # target_channel = None when hosting stops
+                        amount = int(match.group(2))
+                        self._callbacks["onHostTarget"](match.group(1), None, amount)
                 elif key == "onClearChat":
-                    # TODO Check if user matchgroup is None
                     if self._callbacks["onClearChat"]:
-                        # channel, username
+                        # channel, viewer
                         # username may be None if it was a channel clear
-                        self._callbacks["onClearChat"](match.group(1), match.group(2))
+                        viewer = None
+                        if match.lastindex == 2:
+                            viewer = match.group(3)
+                        self._callbacks["onClearChat"](match.group(1), viewer)
                 elif key == "onUserNotice":
                     if self._callbacks["onUserNotice"]:
                         # channel, message
