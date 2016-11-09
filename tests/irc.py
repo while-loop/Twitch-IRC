@@ -7,13 +7,15 @@ class TestIRC(unittest.TestCase):
     def setUp(self):
         self.oauthToken = "oauthToken"
         self.oauthError = "Invalid Oauth token"
+        self.username = "username"
+        self.usernameError = "Invalid username"
 
     def test_unicode_oauth_token_passes(self):
-        chat = IRC(unicode(self.oauthToken))
+        chat = IRC(unicode(self.oauthToken), self.username)
         self.assertIsNotNone(chat, "IRC returned None object")
 
     def test_string_oauth_token_passes(self):
-        chat = IRC(str(self.oauthToken))
+        chat = IRC(str(self.oauthToken), self.username)
         self.assertIsNotNone(chat, "IRC returned None object")
 
     def test_none_oauth_token_passes(self):
@@ -28,11 +30,11 @@ class TestIRC(unittest.TestCase):
     def _run_oauth_or_id_exception_test(self, value, errorMsg):
         exceptionRaised = False
         try:
-            IRC(value)
+            IRC(value, self.username)
         except TypeError, e:
             exceptionRaised = True
-            self.assertEqual(e.message, errorMsg, "IRC {} Exception message not matched".format(type))
-        self.assertFalse(exceptionRaised, "{} Exception was not raised".format(type))
+            self.assertEqual(e.message, errorMsg, "IRC {} Exception message not matched".format(type(value)))
+        self.assertTrue(exceptionRaised, "{} Exception was not raised".format(type(value)))
 
 
 if __name__ == '__main__':

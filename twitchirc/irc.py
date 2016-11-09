@@ -167,21 +167,6 @@ class IRC:
         # if we get here, we didn't get a response from the server within the timeout limit
         raise IRCException("Unable to receive authentication response from the Twitch IRC server")
 
-        """
-        (wrong oath && username) or (correct oath && right username)
-        :tmi.twitch.tv NOTICE * :Login authentication failed
-
-         else
-
-        :tmi.twitch.tv 001 user :Welcome, GLHF!
-        :tmi.twitch.tv 002 user :Your host is tmi.twitch.tv
-        :tmi.twitch.tv 003 user :This server is rather new
-        :tmi.twitch.tv 004 user :-
-        :tmi.twitch.tv 375 user :-
-        :tmi.twitch.tv 372 user :You are in a maze of twisty passages, all alike.
-        :tmi.twitch.tv 376 user :>
-        """
-
     def reconnect(self):
         self._state = State.RECONNECTING
         self.close()
