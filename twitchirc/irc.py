@@ -114,7 +114,6 @@ class IRC:
         :param timeout:
         :param host:
         :param port:
-        :return:
         """
         self._conn.settimeout(timeout)
         start = time.time()
@@ -185,6 +184,8 @@ class IRC:
 
     def reconnect(self):
         self._state = State.RECONNECTING
+        self.close()
+        self.connect()
 
     def _readline(self):
         line = []
@@ -273,22 +274,25 @@ class IRC:
         pass
 
     def sendMessage(self, channelName, msg):
+        """
+        Send a message to the specified channel
+        :param channelName: channel to send the message to
+        :param msg: message to send
+        """
         if msg[:len(msg) - 3] != "\r\n":
             msg += "\r\n"
 
         formattedMsg = 'PRIVMSG #{channelName} :{msg}'.format(channelName=channelName, msg=msg)
-        self._sendRawCommand(formattedMsg)
+        self.sendCommand(formattedMsg)
 
     def sendCommand(self, cmd):
         if self._state == State.DISCONNECTED:
             raise IRCException("Disconnected from Twitch IRC server.")
         elif self._state == State.RECONNECTING:
             print "Reconnecting to Twitch server",
-            while self._state == State.RECONNECTING:
-                print ".",
-                time.sleep(.5)
+            self.reconnect()
             # connected or disconnected..
-            if self._state == State.DISCONNECTED:
+            if self._state != State.CONNECTED:
                 raise IRCException("Disconnected from Twitch IRC server.")
 
         if self._overwriteSend:
