@@ -59,7 +59,7 @@ class IRC:
     OP = "+"
     DEOP = "-"
 
-    def __init__(self, oauthToken, username, overwriteSend=False, onResponse=None, onPong=None, onReconnect=None,
+    def __init__(self, oauthToken, username, overwriteSend=False, onResponse=None, onPing=None, onReconnect=None,
                  cmdShebang="!"):
         if not oauthToken or (type(oauthToken) != str and type(oauthToken) != unicode):
             raise TypeError("Invalid Oauth token")
@@ -88,7 +88,7 @@ class IRC:
         # lets the developer handle all incoming messages, excluding ping-pongs and reconnects
         self._callbacks['onResponse'] = onResponse
 
-        self._callbacks['onPong'] = onPong
+        self._callbacks['onPing'] = onPing
         self._callbacks['onReconnect'] = onReconnect
 
         # callbacks if the dev did not override onResponse
@@ -291,10 +291,10 @@ class IRC:
             data = self._readline()
 
             if 'PING :tmi.twitch.tv' == data:  # check for ping-pong
-                if not self._callbacks['onPong']:
+                if not self._callbacks['onPing']:
                     self.pong()
                 else:
-                    self._callbacks['onPong'](self, data)
+                    self._callbacks['onPing'](self, data)
             elif 'RECONNECT :tmi.twitch.tv' == data:  # reconnects
                 if not self._callbacks['onReconnect']:
                     self.reconnect()

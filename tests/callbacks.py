@@ -285,17 +285,17 @@ class TestCallbacks(unittest.TestCase):
         self.chat._conn = MagicMock(name='socket', spec=socket.socket)
         self.setAndConnect(LINE)
 
-    def test_on_pong_override(self):
+    def test_on_ping_override(self):
         func = inspect.stack()[0][3]
         LINE = "PING :tmi.twitch.tv\r\n"
 
-        def onPong(chat, line):
+        def onPing(chat, line):
             self.assertIsNotNone(chat)
             self.assertEqual(line, LINE.replace("\r\n", ""))
             TestCallbacks.tests[func] = True
 
         self.tearDown()
-        self.chat = IRC("nooauth", TestCallbacks.USER, onPong=onPong)
+        self.chat = IRC("nooauth", TestCallbacks.USER, onPing=onPing)
         self.chat._conn = MagicMock(name='socket', spec=socket.socket)
         self.setAndConnect(LINE)
 
