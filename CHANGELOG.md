@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - This CHANGELOG file to hopefully serve as an evolving example of a standardized open source project CHANGELOG.
 - Tests for all supported callbacks
-- 
+- Created IRC Callback [documentation](docs/Callbacks.md)
 
 
 [Unreleased]: https://github.com/while-loop/Twitch-IRC/compare/v0.0.1...HEAD
