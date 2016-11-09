@@ -1,12 +1,9 @@
 import inspect
 import socket
+import time
 import unittest
-from optparse import OptionParser
 from types import FunctionType
 
-import sys
-
-import time
 from mock import MagicMock
 
 from twitchirc.irc import IRC
@@ -44,7 +41,8 @@ class TestCallbacks(unittest.TestCase):
         MESSAGE = "testmessage"
         func = inspect.stack()[0][3]
 
-        def onMessage(channel, viewer, message):
+        def onMessage(irc, channel, viewer, message):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             self.assertEqual(message, MESSAGE)
@@ -62,7 +60,8 @@ class TestCallbacks(unittest.TestCase):
         VALUE = "value"
         func = inspect.stack()[0][3]
 
-        def onCommand(channel, viewer, command, value):
+        def onCommand(irc, channel, viewer, command, value):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             self.assertEqual(command, COMMAND)
@@ -84,7 +83,8 @@ class TestCallbacks(unittest.TestCase):
         self.tearDown()
         self.setUp(shebang=SHEBANG)
 
-        def onCommand(channel, viewer, command, value):
+        def onCommand(irc, channel, viewer, command, value):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             self.assertEqual(command, COMMAND)
@@ -100,7 +100,8 @@ class TestCallbacks(unittest.TestCase):
     def test_on_join(self):
         func = inspect.stack()[0][3]
 
-        def onJoin(channel, viewer):
+        def onJoin(irc, channel, viewer):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             TestCallbacks.tests[func] = True
@@ -114,7 +115,8 @@ class TestCallbacks(unittest.TestCase):
     def test_on_part(self):
         func = inspect.stack()[0][3]
 
-        def onPart(channel, viewer):
+        def onPart(irc, channel, viewer):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             TestCallbacks.tests[func] = True
@@ -129,7 +131,8 @@ class TestCallbacks(unittest.TestCase):
         OPCODE = IRC.OP
         func = inspect.stack()[0][3]
 
-        def onMode(channel, viewer, opcode):
+        def onMode(irc, channel, viewer, opcode):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             self.assertEqual(opcode, OPCODE)
@@ -145,7 +148,8 @@ class TestCallbacks(unittest.TestCase):
         OPCODE = IRC.DEOP
         func = inspect.stack()[0][3]
 
-        def onMode(channel, viewer, opcode):
+        def onMode(irc, channel, viewer, opcode):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
             self.assertEqual(opcode, OPCODE)
@@ -162,10 +166,11 @@ class TestCallbacks(unittest.TestCase):
         MSG = "This room is already in r9k mode."
         func = inspect.stack()[0][3]
 
-        def onNotice(channel, id, msg):
+        def onNotice(irc, channel, msgid, message):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
-            self.assertEqual(id, ID)
-            self.assertEqual(msg, MSG)
+            self.assertEqual(msgid, ID)
+            self.assertEqual(message, MSG)
             TestCallbacks.tests[func] = True
 
         self.chat.addCallbacks(onNotice=onNotice)
@@ -179,10 +184,11 @@ class TestCallbacks(unittest.TestCase):
         MSG = "This room is now in emote-only mode."
         func = inspect.stack()[0][3]
 
-        def onNotice(channel, id, msg):
+        def onNotice(irc, channel, msgid, message):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
-            self.assertEqual(id, ID)
-            self.assertEqual(msg, MSG)
+            self.assertEqual(msgid, ID)
+            self.assertEqual(message, MSG)
             TestCallbacks.tests[func] = True
 
         self.chat.addCallbacks(onNotice=onNotice)
@@ -197,7 +203,8 @@ class TestCallbacks(unittest.TestCase):
         AMOUNT = 8675309
         func = inspect.stack()[0][3]
 
-        def onHostTarget(hosting, target, amount):
+        def onHostTarget(irc, hosting, target, amount):
+            self.assertIsNotNone(irc)
             self.assertEqual(hosting, HOSTING)
             self.assertEqual(target, TARGET)
             self.assertEqual(amount, AMOUNT)
@@ -215,7 +222,8 @@ class TestCallbacks(unittest.TestCase):
         TARGET = None
         func = inspect.stack()[0][3]
 
-        def onHostTarget(hosting, target, amount):
+        def onHostTarget(irc, hosting, target, amount):
+            self.assertIsNotNone(irc)
             self.assertEqual(hosting, HOSTING)
             self.assertEqual(target, TARGET)
             self.assertEqual(amount, AMOUNT)
@@ -230,7 +238,8 @@ class TestCallbacks(unittest.TestCase):
     def test_on_clear_chat_viewer(self):
         func = inspect.stack()[0][3]
 
-        def onClearChat(channel, viewer):
+        def onClearChat(irc, channel, viewer):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, self.CHANNEL)
             self.assertEqual(viewer, self.VIEWER)
             TestCallbacks.tests[func] = True
@@ -244,7 +253,8 @@ class TestCallbacks(unittest.TestCase):
     def test_on_clear_chat_channel(self):
         func = inspect.stack()[0][3]
 
-        def onClearChat(channel, viewer):
+        def onClearChat(irc, channel, viewer):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, self.CHANNEL)
             self.assertEqual(viewer, None)
             TestCallbacks.tests[func] = True
@@ -259,9 +269,10 @@ class TestCallbacks(unittest.TestCase):
         MSG = "Yo, NiCe StReAm BrUh!"
         func = inspect.stack()[0][3]
 
-        def onUserNotice(channel, msg):
+        def onUserNotice(irc, channel, message):
+            self.assertIsNotNone(irc)
             self.assertEqual(channel, self.CHANNEL)
-            self.assertEqual(msg, MSG)
+            self.assertEqual(message, MSG)
             TestCallbacks.tests[func] = True
 
         self.chat.addCallbacks(onUserNotice=onUserNotice)
@@ -275,8 +286,8 @@ class TestCallbacks(unittest.TestCase):
         LINE = ":{viewer}!{viewer}@{viewer}.tmi.twitch.tv PRIVMSG #{channel} :{message}\r\n" \
             .format(viewer=self.VIEWER, channel=self.CHANNEL, message="This is a message")
 
-        def onResponse(chat, line):
-            self.assertIsNotNone(chat)
+        def onResponse(irc, line):
+            self.assertIsNotNone(irc)
             self.assertEqual(line, LINE.replace("\r\n", ""))
             TestCallbacks.tests[func] = True
 
@@ -289,8 +300,8 @@ class TestCallbacks(unittest.TestCase):
         func = inspect.stack()[0][3]
         LINE = "PING :tmi.twitch.tv\r\n"
 
-        def onPing(chat, line):
-            self.assertIsNotNone(chat)
+        def onPing(irc, line):
+            self.assertIsNotNone(irc)
             self.assertEqual(line, LINE.replace("\r\n", ""))
             TestCallbacks.tests[func] = True
 
@@ -303,8 +314,8 @@ class TestCallbacks(unittest.TestCase):
         func = inspect.stack()[0][3]
         LINE = "RECONNECT :tmi.twitch.tv\r\n"
 
-        def onReconnect(chat, line):
-            self.assertIsNotNone(chat)
+        def onReconnect(irc, line):
+            self.assertIsNotNone(irc)
             self.assertEqual(line, LINE.replace("\r\n", ""))
             TestCallbacks.tests[func] = True
 

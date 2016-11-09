@@ -339,41 +339,41 @@ class IRC:
                 if key == "onMessage":
                     if self._callbacks["onMessage"]:
                         # channel, viewer, message
-                        self._callbacks["onMessage"](match.group(2), match.group(1), match.group(3))
+                        self._callbacks["onMessage"](self, match.group(2), match.group(1), match.group(3))
                 elif key == "onCommand":
                     if self._callbacks["onCommand"]:
                         # channel, viewer, command, value
                         # value may be None
-                        self._callbacks["onCommand"](match.group(2), match.group(1), match.group(3), match.group(4))
+                        self._callbacks["onCommand"](self, match.group(2), match.group(1), match.group(3), match.group(4))
                 elif key == "onJoin":
                     if self._callbacks["onJoin"]:
                         # channel, viewer
-                        self._callbacks["onJoin"](match.group(2), match.group(1))
+                        self._callbacks["onJoin"](self, match.group(2), match.group(1))
                 elif key == "onPart":
                     if self._callbacks["onPart"]:
                         # channel, viewer
-                        self._callbacks["onPart"](match.group(2), match.group(1))
+                        self._callbacks["onPart"](self, match.group(2), match.group(1))
                 elif key == "onMode":
                     if self._callbacks["onMode"]:
                         # channel, viewer, opcode
                         # opcode = [-+]
-                        self._callbacks["onMode"](match.group(1), match.group(3), match.group(2))
+                        self._callbacks["onMode"](self, match.group(1), match.group(3), match.group(2))
                 elif key == "onNotice":
                     if self._callbacks["onNotice"]:
                         # channel, msg-id, msg
-                        self._callbacks["onNotice"](match.group(2), match.group(1), match.group(3))
+                        self._callbacks["onNotice"](self, match.group(2), match.group(1), match.group(3))
                 elif key == "onHostTarget":
                     if self._callbacks["onHostTarget"]:
                         # hosting_channel, target_channel, amount
                         # target_channel = None when hosting stops
                         amount = int(match.group(3))
-                        self._callbacks["onHostTarget"](match.group(1), match.group(2), amount)
+                        self._callbacks["onHostTarget"](self, match.group(1), match.group(2), amount)
                 elif key == "onHostTargetStop":
                     if self._callbacks["onHostTarget"]:
                         # hosting_channel, target_channel, amount
                         # target_channel = None when hosting stops
                         amount = int(match.group(2))
-                        self._callbacks["onHostTarget"](match.group(1), None, amount)
+                        self._callbacks["onHostTarget"](self, match.group(1), None, amount)
                 elif key == "onClearChat":
                     if self._callbacks["onClearChat"]:
                         # channel, viewer
@@ -381,11 +381,11 @@ class IRC:
                         viewer = None
                         if match.lastindex == 2:
                             viewer = match.group(3)
-                        self._callbacks["onClearChat"](match.group(1), viewer)
+                        self._callbacks["onClearChat"](self, match.group(1), viewer)
                 elif key == "onUserNotice":
                     if self._callbacks["onUserNotice"]:
                         # channel, message
-                        self._callbacks["onUserNotice"](match.group(1), match.group(2))
+                        self._callbacks["onUserNotice"](self, match.group(1), match.group(2))
                 else:
                     # TODO got a match, but didn't handle callback
                     print "Didn't handle matched callback", key, regex
