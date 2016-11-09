@@ -6,6 +6,11 @@ Twitch-IRC Callbacks
 
 IRC Chat Callbacks
 ------------------
+Chat callbacks can be added via the method `addCallbacks()`. 
+**Note:** previous callbacks will be removed if not added again.
+
+The `onResponse` callback can be added via the constructor for `IRC`.
+
 | callback       | description                                                                         | parameters                                                                       | example                                                                                     | notes                                                                                                                            |
 | -------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------  | -------------------------------------------------------------------------------------------------------------------------------- |
 | `onResponse`   | receive twitch commands or messages directly from the IRC socket (no prepossessing) | (IRC `irc`, string `line`)                                                       | ```:viewer!viewer@viewer.tmi.twitch.tv PRIVMSG #channel :message here```                    | if this callback is used, all callbacks mentioned below will not be handled by the IRC                                           |
@@ -20,6 +25,8 @@ IRC Chat Callbacks
 
 IRC Connection Callbacks
 ------------------------
+Connection callbacks can be added via the constructor for `IRC` using the parameters `onPing=` and `onReconnect`.
+
 | callback      | description                                                | parameters                 | comments |
 | ------------- | ---------------------------------------------------------- | -------------------------- | -------- |
 | `onPing`      | receive callback when the IRC issues a `PING` request      | (IRC `irc`, string `line`) |          |

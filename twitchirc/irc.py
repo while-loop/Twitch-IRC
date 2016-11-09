@@ -63,6 +63,17 @@ class IRC:
 
     def __init__(self, oauthToken, username, overwriteSend=False, onResponse=None, onPing=None, onReconnect=None,
                  cmdShebang="!"):
+        """
+        Setup and initialize the IRC object with the configurations given. Call connect() after the constructor
+
+        :param oauthToken: twitch oauth token include the `oauth:` prefix
+        :param username: twitch.tv username associated with the ouath token
+        :param overwriteSend: skip the send rate limiter feature
+        :param onResponse: override any response coming directly from the IRC socket
+        :param onPing: override the onPing handler
+        :param onReconnect: override the onReconnect handler
+        :param cmdShebang: add a custom command shebang to the pre-processing feature
+        """
         if not oauthToken or (type(oauthToken) != str and type(oauthToken) != unicode):
             raise TypeError("Invalid Oauth token")
         if not username or (type(username) != str and type(username) != unicode):

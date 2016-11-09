@@ -29,9 +29,9 @@ Basic Usage
 
 
 Future Updates / TODO
---------------
+---------------------
 - Transparent Server reconnection (Needs testing)
-- Well tested and documented
+- Well [tested](tests/) and [documented](docs/)
 - Optional Moderator only bot
     - Mod only bots get an increase rate of 100 commands per 30 secs
     - Need to enforce that the bot is a mod before sending message
