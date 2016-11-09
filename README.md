@@ -1,5 +1,8 @@
 Twitch-IRC
 ==========
+
+# LIBRARY IS IN DEVELOPMENT
+
 [![GitHub version](https://badge.fury.io/gh/while-loop%2FTwitch-IRC.svg)](https://badge.fury.io/gh/while-loop%2FTwitch-IRC) [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://opensource.org/licenses/mit-license.php)   
 
 Python Twitch.tv IRC library.
