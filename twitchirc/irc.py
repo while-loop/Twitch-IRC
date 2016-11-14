@@ -87,6 +87,7 @@ class IRC:
 
         # Threads
         self._recvThread = Thread(target=self._recvWorker)
+        self._shutdown = False
 
         # lets the dev directly send all outgoing messages bypassing the queues, excluding ping-pongs
         self._overwriteSend = overwriteSend
@@ -210,6 +211,13 @@ class IRC:
     def close(self):
         self._state = State.DISCONNECTED  # should also close recv thread
         self._conn.close()
+
+    def serverForever(self, pollInterval=0.5):
+        while not self._shutdown:
+            time.sleep(pollInterval)
+
+    def shutdown(self):
+        self._shutdown = True
 
     """
     -----------------------------------------------------------------------------------------------

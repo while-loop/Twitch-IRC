@@ -100,13 +100,14 @@ class TestCallbacks(unittest.TestCase):
     def test_on_join(self):
         func = inspect.stack()[0][3]
 
-        def onJoin(irc, channel, viewer):
+        def onJoin(irc, channel, viewer, state):
             self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
+            self.assertEqual(state, IRC.JOIN)
             TestCallbacks.tests[func] = True
 
-        self.chat.addCallbacks(onJoin=onJoin)
+        self.chat.addCallbacks(onJoinPart=onJoin)
         msg = ":{viewer}!{viewer}@{viewer}.tmi.twitch.tv JOIN #{channel}\r\n".format(
             viewer=TestCallbacks.VIEWER, channel=TestCallbacks.CHANNEL)
 
@@ -115,13 +116,14 @@ class TestCallbacks(unittest.TestCase):
     def test_on_part(self):
         func = inspect.stack()[0][3]
 
-        def onPart(irc, channel, viewer):
+        def onPart(irc, channel, viewer, state):
             self.assertIsNotNone(irc)
             self.assertEqual(channel, TestCallbacks.CHANNEL)
             self.assertEqual(viewer, TestCallbacks.VIEWER)
+            self.assertEqual(state, IRC.PART)
             TestCallbacks.tests[func] = True
 
-        self.chat.addCallbacks(onPart=onPart)
+        self.chat.addCallbacks(onJoinPart=onPart)
         msg = ":{viewer}!{viewer}@{viewer}.tmi.twitch.tv PART #{channel}\r\n".format(
             viewer=TestCallbacks.VIEWER, channel=TestCallbacks.CHANNEL)
 
@@ -162,7 +164,7 @@ class TestCallbacks(unittest.TestCase):
         self.setAndConnect(msg)
 
     def test_on_notice_already_r9k_on(self):
-        ID = IRC.ALREADY_R9K_ON
+        ID = IRC.ID_ALREADY_R9K_ON
         MSG = "This room is already in r9k mode."
         func = inspect.stack()[0][3]
 
@@ -180,7 +182,7 @@ class TestCallbacks(unittest.TestCase):
         self.setAndConnect(msg)
 
     def test_on_notice_emote_only_on(self):
-        ID = IRC.EMOTE_ONLY_ON
+        ID = IRC.ID_EMOTE_ONLY_ON
         MSG = "This room is now in emote-only mode."
         func = inspect.stack()[0][3]
 
