@@ -40,6 +40,13 @@ Future Updates / TODO
     - Need to enforce that the bot is a mod before sending message
 - Custom Command & Message rate limits
 
+Changelog
+---------
+
+The format is based on [Keep a Changelog](http://keepachangelog.com/) 
+and this project adheres to [Semantic Versioning](http://semver.org/).
+
+[CHANGELOG.md](CHANGELOG.md)
 
 License
 -------
