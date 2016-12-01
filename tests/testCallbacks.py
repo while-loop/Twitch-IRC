@@ -23,7 +23,7 @@ class TestCallbacks(unittest.TestCase):
                     TestCallbacks.tests[y.func_name] = False
 
         self.chat = IRC("nooauth", TestCallbacks.USER, cmdShebang=shebang)
-        self.chat._conn = MagicMock(name='socket', spec=socket.socket)
+        self.chat.__conn = MagicMock(name='socket', spec=socket.socket)
 
         self.login = ":tmi.twitch.tv 001 " + TestCallbacks.USER + "\r\n :tmi.twitch.tv 376 " + TestCallbacks.USER
 
@@ -34,7 +34,7 @@ class TestCallbacks(unittest.TestCase):
     def setAndConnect(self, msg):
         recvs = [self.login, '', ]
         recvs.extend(list(msg))
-        self.chat._conn.recv.side_effect = recvs
+        self.chat.__conn.recv.side_effect = recvs
         self.chat.connect()
 
     def test_on_message(self):
@@ -295,7 +295,7 @@ class TestCallbacks(unittest.TestCase):
 
         self.tearDown()
         self.chat = IRC("nooauth", TestCallbacks.USER, onResponse=onResponse)
-        self.chat._conn = MagicMock(name='socket', spec=socket.socket)
+        self.chat.__conn = MagicMock(name='socket', spec=socket.socket)
         self.setAndConnect(LINE)
 
     def test_on_ping_override(self):
@@ -309,7 +309,7 @@ class TestCallbacks(unittest.TestCase):
 
         self.tearDown()
         self.chat = IRC("nooauth", TestCallbacks.USER, onPing=onPing)
-        self.chat._conn = MagicMock(name='socket', spec=socket.socket)
+        self.chat.__conn = MagicMock(name='socket', spec=socket.socket)
         self.setAndConnect(LINE)
 
     def test_on_reconnect_override(self):
@@ -323,7 +323,7 @@ class TestCallbacks(unittest.TestCase):
 
         self.tearDown()
         self.chat = IRC("nooauth", TestCallbacks.USER, onReconnect=onReconnect)
-        self.chat._conn = MagicMock(name='socket', spec=socket.socket)
+        self.chat.__conn = MagicMock(name='socket', spec=socket.socket)
         self.setAndConnect(LINE)
 
     def test_zzzzz_tests_passed(self):

@@ -6,6 +6,7 @@ import time
 from json import loads
 from threading import Thread
 from urllib2 import urlopen
+from abc import ABCMeta, abstractmethod
 
 from enum import Enum
 
@@ -30,7 +31,9 @@ REGEXS = {"onMessage": r"^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.
           }
 
 
-class IRC:
+class IRC(object):
+    __metaclass__ = ABCMeta
+
     ID_SUBS_ON = "subs_on"
     ID_SUBS_OFF = "subs_off"
     ID_ALREADY_SUBS_ON = "already_subs_on"
@@ -61,59 +64,32 @@ class IRC:
     JOIN = "JOIN"
     PART = "PART"
 
-    def __init__(self, oauthToken, username, overwriteSend=False, onResponse=None, onPing=None, onReconnect=None,
-                 cmdShebang="!"):
+    def __init__(self, oauthToken, username):
         """
         Setup and initialize the IRC object with the configurations given. Call connect() after the constructor
 
         :param oauthToken: twitch oauth token include the `oauth:` prefix
         :param username: twitch.tv username associated with the ouath token
-        :param overwriteSend: skip the send rate limiter feature
-        :param onResponse: override any response coming directly from the IRC socket
-        :param onPing: override the onPing handler
-        :param onReconnect: override the onReconnect handler
-        :param cmdShebang: add a custom command shebang to the pre-processing feature
         """
         if not oauthToken or (type(oauthToken) != str and type(oauthToken) != unicode):
             raise TypeError("Invalid Oauth token")
         if not username or (type(username) != str and type(username) != unicode):
             raise TypeError("Invalid username")
-        if not cmdShebang or (type(cmdShebang) != str and type(cmdShebang) != unicode):
-            raise TypeError("Invalid command shebang")
 
         # Networks
-        self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._state = State.DISCONNECTED
+        self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__state = State.DISCONNECTED
+
+        self.cmdShebang = "!"
+        self.overwriteSend = False
 
         # Threads
-        self._recvThread = Thread(target=self._recvWorker)
-        self._shutdown = False
-
-        # lets the dev directly send all outgoing messages bypassing the queues, excluding ping-pongs
-        self._overwriteSend = overwriteSend
-        self._cmdShebang = cmdShebang
+        self.__recvThread = Thread(target=self.__recvWorker)
+        self.__shutdown = False
 
         # Twitch Info
-        self._oauthToken = oauthToken
-        self._username = username.lower()  # usernames are lowercase
-
-        # Callbacks
-        self._callbacks = {}
-        # lets the developer handle all incoming messages, excluding ping-pongs and reconnects
-        self._callbacks['onResponse'] = onResponse
-
-        self._callbacks['onPing'] = onPing
-        self._callbacks['onReconnect'] = onReconnect
-
-        # callbacks if the dev did not override onResponse
-        self._callbacks['onCommand'] = None
-        self._callbacks['onMessage'] = None
-        self._callbacks['onJoinPart'] = None
-        self._callbacks['onMode'] = None
-        self._callbacks['onNotice'] = None
-        self._callbacks['onTargetHost'] = None
-        self._callbacks['onClearChat'] = None
-        self._callbacks['onUserNotice'] = None
+        self.__oauthToken = oauthToken
+        self.__username = username.lower()  # usernames are lowercase
 
     """
     -----------------------------------------------------------------------------------------------
@@ -128,10 +104,10 @@ class IRC:
         :param host:
         :param port:
         """
-        self._conn.settimeout(timeout)
+        self.__conn.settimeout(timeout)
         start = time.time()
         try:
-            self._conn.connect((host, port))
+            self.__conn.connect((host, port))
             timeout -= (time.time() - start)  # check how long it took to connect and subtract
         except socket.error, e:
             print >> sys.stderr, 'Cannot connect to Twitch IRC server ({}:{}).'.format(host, port)
@@ -139,14 +115,14 @@ class IRC:
                                  '\tMsg:\t\t{msg}{newline}'.format(errno=e[0], newline=os.linesep, msg=e[1])
             raise
 
-        self._conn.send('PASS {}\r\n'.format(self._oauthToken))
-        self._conn.send('NICK {}\r\n'.format(self._username))
+        self.__conn.send('PASS {}\r\n'.format(self.__oauthToken))
+        self.__conn.send('NICK {}\r\n'.format(self.__username))
 
-        self._conn.settimeout(timeout)  # set the timeout based on the amount of time connect() took
+        self.__conn.settimeout(timeout)  # set the timeout based on the amount of time connect() took
         start = time.time()
         data = ""
         try:
-            data += self._conn.recv(1024)
+            data += self.__conn.recv(1024)
             timeout -= (time.time() - start)  # check how long it took to connect and subtract
         except socket.timeout:
             raise IRCException("Unable to receive authentication response from the Twitch IRC server")
@@ -156,23 +132,23 @@ class IRC:
             if ":tmi.twitch.tv NOTICE * :Login authentication failed" in data:
                 raise AuthenticationError("Login authentication failed")
 
-            if ":tmi.twitch.tv 001 " + self._username in data and ":tmi.twitch.tv 376 " + self._username in data:
+            if ":tmi.twitch.tv 001 " + self.__username in data and ":tmi.twitch.tv 376 " + self.__username in data:
                 # logged in
-                self._state = State.CONNECTED
+                self.__state = State.CONNECTED
 
                 # receive membership state events (NAMES, JOIN, PART, or MODE)
-                self._conn.send('CAP REQ :twitch.tv/membership\r\n')
+                self.__conn.send('CAP REQ :twitch.tv/membership\r\n')
 
                 # Enables custom raw commands
-                self._conn.send('CAP REQ :twitch.tv/commands\r\n')
+                self.__conn.send('CAP REQ :twitch.tv/commands\r\n')
 
-                self._conn.recv(1024)
-                self._recvThread.start()
+                self.__conn.recv(1024)
+                self.__recvThread.start()
                 return
 
             try:
-                self._conn.settimeout(timeout)  # set the timeout based on the amount of time recv() took
-                data += self._conn.recv(1024)
+                self.__conn.settimeout(timeout)  # set the timeout based on the amount of time recv() took
+                data += self.__conn.recv(1024)
                 timeout -= (time.time() - start)  # check how long it took to recv and subtract
             except socket.timeout:
                 raise IRCException("Unable to receive authentication response from the Twitch IRC server")
@@ -180,19 +156,19 @@ class IRC:
         # if we get here, we didn't get a response from the server within the timeout limit
         raise IRCException("Unable to receive authentication response from the Twitch IRC server")
 
-    def reconnect(self):
-        self._state = State.RECONNECTING
+    def onReconnect(self):
+        self.__state = State.RECONNECTING
         self.close()
         self.connect()
 
-    def _readline(self):
+    def __readline(self):
         line = []
-        while True:
+        while self.__state == State.CONNECTED:
             c = None
             try:
-                c = self._conn.recv(1)
+                c = self.__conn.recv(1)
             except StopIteration:  # fake the type of request when running tests
-                self._state = State.DISCONNECTED
+                self.__state = State.DISCONNECTED
                 line = list("PING :tmi.twitch.tv")
                 break
 
@@ -209,15 +185,15 @@ class IRC:
         return ''.join(line)
 
     def close(self):
-        self._state = State.DISCONNECTED  # should also close recv thread
-        self._conn.close()
+        self.__state = State.DISCONNECTED  # should also close recv thread
+        self.__conn.close()
 
     def serverForever(self, pollInterval=0.5):
-        while not self._shutdown:
+        while not self.__shutdown:
             time.sleep(pollInterval)
 
     def shutdown(self):
-        self._shutdown = True
+        self.__shutdown = True
 
     """
     -----------------------------------------------------------------------------------------------
@@ -231,8 +207,8 @@ class IRC:
 
         for channel in channels:
             cmd = "JOIN #{channel}\r\n".format(channel=channel)
-            if self._overwriteSend:
-                self._conn.send(cmd)
+            if self.overwriteSend:
+                self.__conn.send(cmd)
             else:
                 # TODO add to queue
                 pass
@@ -243,8 +219,8 @@ class IRC:
 
         for channel in channels:
             cmd = "PART #{channel}\r\n".format(channel=channel)
-            if self._overwriteSend:
-                self._conn.send(cmd)
+            if self.overwriteSend:
+                self.__conn.send(cmd)
             else:
                 # TODO add to queue
                 pass
@@ -271,9 +247,8 @@ class IRC:
                                        Communication Functions
     -----------------------------------------------------------------------------------------------
     """
-
-    def pong(self):
-        self._conn.sendall('PONG :tmi.twitch.tv\r\n')
+    def onPing(self):
+        self.__conn.sendall('PONG :tmi.twitch.tv\r\n')
 
     def getSendQueue(self):
         pass
@@ -291,40 +266,31 @@ class IRC:
         self.sendCommand(formattedMsg)
 
     def sendCommand(self, cmd):
-        if self._state == State.DISCONNECTED:
+        if self.__state == State.DISCONNECTED:
             raise IRCException("Disconnected from Twitch IRC server.")
-        elif self._state == State.RECONNECTING:
+        elif self.__state == State.RECONNECTING:
             print "Reconnecting to Twitch server",
-            self.reconnect()
+            self.onReconnect()
             # connected or disconnected..
-            if self._state != State.CONNECTED:
+            if self.__state != State.CONNECTED:
                 raise IRCException("Disconnected from Twitch IRC server.")
 
-        if self._overwriteSend:
-            self._conn.send(cmd)
+        if self.overwriteSend:
+            self.__conn.send(cmd)
         else:
-            # add to queue
+            # TODO add to queue
             pass
 
-    def _recvWorker(self):
-        while self._state == State.CONNECTED:
-            data = self._readline()
+    def __recvWorker(self):
+        while self.__state == State.CONNECTED:
+            data = self.__readline()
 
             if 'PING :tmi.twitch.tv' == data:  # check for ping-pong
-                if not self._callbacks['onPing']:
-                    self.pong()
-                else:
-                    self._callbacks['onPing'](self, data)
+                self.onPing()
             elif 'RECONNECT :tmi.twitch.tv' == data:  # reconnects
-                if not self._callbacks['onReconnect']:
-                    self.reconnect()
-                else:
-                    self._callbacks['onReconnect'](self, data)
+                self.onReconnect()
             else:
-                if not self._callbacks['onResponse']:
-                    self._onResponse(data)
-                else:
-                    self._callbacks['onResponse'](self, data)
+                self.onResponse(data)
 
     """
     -----------------------------------------------------------------------------------------------
@@ -332,82 +298,157 @@ class IRC:
     -----------------------------------------------------------------------------------------------
     """
 
-    def addCallbacks(self, onMessage=None, onCommand=None, onJoinPart=None, onMode=None, onNotice=None,
-                     onHostTarget=None, onClearChat=None, onUserNotice=None):
-        self._callbacks['onCommand'] = onCommand
-        self._callbacks['onMessage'] = onMessage
-        self._callbacks['onJoinPart'] = onJoinPart
-        self._callbacks['onMode'] = onMode
-        self._callbacks['onNotice'] = onNotice
-        self._callbacks['onHostTarget'] = onHostTarget
-        self._callbacks['onClearChat'] = onClearChat
-        self._callbacks['onUserNotice'] = onUserNotice
-
-    def _onResponse(self, line):
+    def onResponse(self, line):
+        """
+        receive twitch commands or messages directly from the IRC socket
+        :param line:
+        :return:
+        """
         # print line
         for key in sorted(REGEXS.iterkeys()):  # sort because onMessage replaces onCommand
             regex = REGEXS[key]
             if key == "onCommand":
                 regex = re.compile(
-                    regex.format(shebang=self._cmdShebang))  # TODO fix shebangs that create regex errors (^, \\, etc)
+                    regex.format(shebang=self.cmdShebang))  # TODO fix shebangs that create regex errors (^, \\, etc)
             else:
                 regex = re.compile(regex)
 
             match = regex.search(line)
             if match:
                 if key == "onMessage":
-                    if self._callbacks["onMessage"]:
-                        # channel, viewer, message
-                        self._callbacks["onMessage"](self, match.group(2), match.group(1), match.group(3))
+                    # channel, viewer, message
+                    self.onMessage(match.group(2), match.group(1), match.group(3))
                 elif key == "onCommand":
-                    if self._callbacks["onCommand"]:
-                        # channel, viewer, command, value
-                        # value may be None
-                        self._callbacks["onCommand"](self, match.group(2), match.group(1), match.group(3),
-                                                     match.group(4))
+                    # channel, viewer, command, value
+                    # value may be None
+                    self.onCommand(match.group(2), match.group(1), match.group(3), match.group(4))
                 elif key == "onJoin":
-                    if self._callbacks["onJoinPart"]:
-                        # channel, viewer, state
-                        self._callbacks["onJoinPart"](self, match.group(2), match.group(1), IRC.JOIN)
+                    # channel, viewer, state
+                    self.onJoinPart(match.group(2), match.group(1), IRC.JOIN)
                 elif key == "onPart":
-                    if self._callbacks["onJoinPart"]:
-                        # channel, viewer, state
-                        self._callbacks["onJoinPart"](self, match.group(2), match.group(1), IRC.PART)
+                    # channel, viewer, state
+                    self.onJoinPart(match.group(2), match.group(1), IRC.PART)
                 elif key == "onMode":
-                    if self._callbacks["onMode"]:
-                        # channel, viewer, opcode
-                        # opcode = [-+]
-                        self._callbacks["onMode"](self, match.group(1), match.group(3), match.group(2))
+                    # channel, viewer, state
+                    # opcode = [-+]
+                    self.onMode(match.group(1), match.group(3), match.group(2))
                 elif key == "onNotice":
-                    if self._callbacks["onNotice"]:
-                        # channel, msg-id, msg
-                        self._callbacks["onNotice"](self, match.group(2), match.group(1), match.group(3))
+                    # channel, msg-id, msg
+                    self.onNotice(match.group(2), match.group(1), match.group(3))
                 elif key == "onHostTarget":
-                    if self._callbacks["onHostTarget"]:
-                        # hosting_channel, target_channel, amount
-                        # target_channel = None when hosting stops
-                        amount = int(match.group(3))
-                        self._callbacks["onHostTarget"](self, match.group(1), match.group(2), amount)
+                    # hosting_channel, target_channel, amount
+                    # target_channel = None when hosting stops
+                    amount = int(match.group(3))
+                    self.onHostTarget(match.group(1), match.group(2), amount)
                 elif key == "onHostTargetStop":
-                    if self._callbacks["onHostTarget"]:
-                        # hosting_channel, target_channel, amount
-                        # target_channel = None when hosting stops
-                        amount = int(match.group(2))
-                        self._callbacks["onHostTarget"](self, match.group(1), None, amount)
+                    # hosting_channel, target_channel, amount
+                    # target_channel = None when hosting stops
+                    amount = int(match.group(2))
+                    self.onHostTarget(match.group(1), None, amount)
                 elif key == "onClearChat":
-                    if self._callbacks["onClearChat"]:
-                        # channel, viewer
-                        # username may be None if it was a channel clear
-                        viewer = None
-                        if match.lastindex == 2:
-                            viewer = match.group(3)
-                        self._callbacks["onClearChat"](self, match.group(1), viewer)
+                    # channel, viewer
+                    # username may be None if it was a channel clear
+                    viewer = None
+                    if match.lastindex == 2:
+                        viewer = match.group(3)
+                    self.onClearChat(match.group(1), viewer)
                 elif key == "onUserNotice":
-                    if self._callbacks["onUserNotice"]:
-                        # channel, message
-                        self._callbacks["onUserNotice"](self, match.group(1), match.group(2))
+                    # channel, message
+                    self.onUserNotice(match.group(1), match.group(2))
                 else:
                     # TODO got a match, but didn't handle callback
                     print "Didn't handle matched callback", key, regex
                 return
         print >> sys.stderr, "Unknown response type.\n\t", line
+
+    @abstractmethod
+    def onMessage(self, channel, viewer, message):
+        """
+        receive a user message from a channel
+        :param string channel:
+        :param string viewer:
+        :param string message:
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onCommand(self, channel, viewer, command, value):
+        """
+        receive a bot command by a user from a channel
+
+        a custom shebang can be given to the IRC constructor with `cmdShebang=`.
+        :param string channel:
+        :param string viewer:
+        :param string command:
+        :param string value: May be `None` type
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onJoinPart(self, channel, viewer, state):
+        """
+        get notified when a viewer enters/leaves a channel irc
+        :param string channel:
+        :param string viewer:
+        :param string state: (IRC.JOIN|IRC.PART)
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onMode(self, channel, viewer, state):
+        """
+        get notified when a viewer gets opped/deopped (moderator status) in a channel irc
+        :param string channel:
+        :param string viewer:
+        :param string state: (IRC.OP|IRC.DEOP)
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onNotice(self, channel, msgID, message):
+        """
+        general notices from the server (state change, feeback, etc)
+
+        A list of channel notices can be found in
+        the official IRC [documentation][https://github.com/justintv/Twitch-API/blob/master/IRC.md#notice].
+        :param string channel:
+        :param string msgID: MessageIDs can be accessed by IRC.ID_*
+        :param string message:
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onHostTarget(self, hostingChannel, targetChannel, amount):
+        """
+        notification when a channel starts/stops hosting another channel
+        :param string hostingChannel:
+        :param string targetChannel: may be `None` type if the command is a host stop command
+        :param integer amount:
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onClearChat(self, channel, viewer):
+        """
+        notification when a channel's/viewer's chat has been cleared
+        :param string channel:
+        :param string viewer: may be `None` type if the channel chat has been cleared
+        :return: None
+        """
+        return
+
+    @abstractmethod
+    def onUserNotice(self, channel, message):
+        """
+        notice from a user currently only used for re-subscription messages
+        :param string channel:
+        :param string message:
+        :return: None
+        """
+        return
