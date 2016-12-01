@@ -6,7 +6,6 @@ import time
 from json import loads
 from threading import Thread
 from urllib2 import urlopen
-from abc import ABCMeta, abstractmethod
 
 from enum import Enum
 
@@ -32,8 +31,6 @@ REGEXS = {"onMessage": r"^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.
 
 
 class IRC(object):
-    __metaclass__ = ABCMeta
-
     ID_SUBS_ON = "subs_on"
     ID_SUBS_OFF = "subs_off"
     ID_ALREADY_SUBS_ON = "already_subs_on"
@@ -361,7 +358,6 @@ class IRC(object):
                 return
         print >> sys.stderr, "Unknown response type.\n\t", line
 
-    @abstractmethod
     def onMessage(self, channel, viewer, message):
         """
         receive a user message from a channel
@@ -372,7 +368,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onCommand(self, channel, viewer, command, value):
         """
         receive a bot command by a user from a channel
@@ -386,7 +381,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onJoinPart(self, channel, viewer, state):
         """
         get notified when a viewer enters/leaves a channel irc
@@ -397,7 +391,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onMode(self, channel, viewer, state):
         """
         get notified when a viewer gets opped/deopped (moderator status) in a channel irc
@@ -408,7 +401,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onNotice(self, channel, msgID, message):
         """
         general notices from the server (state change, feeback, etc)
@@ -422,7 +414,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onHostTarget(self, hostingChannel, targetChannel, amount):
         """
         notification when a channel starts/stops hosting another channel
@@ -433,7 +424,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onClearChat(self, channel, viewer):
         """
         notification when a channel's/viewer's chat has been cleared
@@ -443,7 +433,6 @@ class IRC(object):
         """
         return
 
-    @abstractmethod
     def onUserNotice(self, channel, message):
         """
         notice from a user currently only used for re-subscription messages
