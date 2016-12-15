@@ -311,12 +311,13 @@ class IRC(object):
         # start recv'ing messages from IRC
         self.__workers.append(threading.Thread(target=self.__recvWorker))
 
-        # start the join queue timer thread. 50 reqs per 15 secs
-        self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__joinQueue, 15, 50)))
+        if not self.__overrideSend:
+            # start the join queue timer thread. 50 reqs per 15 secs
+            self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__joinQueue, 15, 50)))
 
-        # start the send queue timer thread. 20 commands per 30 secs
-        commands = 100 if self.__modBot else 20
-        self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__sendQueue, 30, commands)))
+            # start the send queue timer thread. 20 commands per 30 secs
+            commands = 100 if self.__modBot else 20
+            self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__sendQueue, 30, commands)))
 
         for t in self.__workers:
             t.start()
