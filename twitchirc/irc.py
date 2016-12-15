@@ -1,10 +1,11 @@
+import multiprocessing
 import os
 import re
 import socket
 import sys
+import threading
 import time
 from json import loads
-from threading import Thread
 from urllib2 import urlopen
 
 from enum import Enum
@@ -26,7 +27,10 @@ REGEXS = {"onMessage": r"^:(\w+)!\1@\1\.tmi\.twitch\.tv\s+PRIVMSG\s+#(\w+)\s+:(.
           "onHostTarget": r"^:tmi\.twitch\.tv\s+HOSTTARGET\s+#(\w+)\s+:(\w+)\s+(\d+)$",
           "onHostTargetStop": r"^:tmi\.twitch\.tv\s+HOSTTARGET\s+#(\w+)\s+:-\s+(\d+)$",
           "onClearChat": r"^:tmi\.twitch\.tv\s+CLEARCHAT\s+#(\w+)(\s+:(\w+))?$",
-          "onUserNotice": r"^:tmi\.twitch\.tv\s+USERNOTICE\s+#(\w+)\s+:(.*)$"
+          "onUserNotice": r"^:tmi\.twitch\.tv\s+USERNOTICE\s+#(\w+)\s+:(.*)$",
+          "onUserState": r"^:tmi\.twitch\.tv\s+USERSTATE\s+#(\w+)$",
+          "onRoomState": r"^:tmi\.twitch\.tv\s+ROOMSTATE\s+#(\w+)$",
+          "onIRCInfo": r"^:{username}\.tmi\.twitch\.tv\s+\d+\s+{username}\s+(.*)"
           }
 
 
@@ -61,7 +65,7 @@ class IRC(object):
     JOIN = "JOIN"
     PART = "PART"
 
-    def __init__(self, oauthToken, username):
+    def __init__(self, oauthToken, username, modBot=False):
         """
         Setup and initialize the IRC object with the configurations given. Call connect() after the constructor
 
@@ -81,12 +85,18 @@ class IRC(object):
         self.overwriteSend = False
 
         # Threads
-        self.__recvThread = Thread(target=self.__recvWorker)
         self.__shutdown = False
+        manager = multiprocessing.Manager()
+        self.__joinQueue = manager.Queue()
+        self.__sendQueue = manager.Queue()
+        self.__workers = []  # 0 = recv thread
+        # 1 = join thread
+        # 2 = send thread
 
         # Twitch Info
         self.__oauthToken = oauthToken
         self.__username = username.lower()  # usernames are lowercase
+        self.__modBot = modBot
 
     """
     -----------------------------------------------------------------------------------------------
@@ -100,6 +110,9 @@ class IRC(object):
         :param timeout:
         :param host:
         :param port:
+        :exception socket.error when unable to connect to Twitch IRC server
+        :exception IRCException when unable to receive authentication response
+        :exception AuthenticationError when failed to login
         """
         self.__conn.settimeout(timeout)
         start = time.time()
@@ -135,12 +148,20 @@ class IRC(object):
 
                 # receive membership state events (NAMES, JOIN, PART, or MODE)
                 self.__conn.send('CAP REQ :twitch.tv/membership\r\n')
+                data = self.__conn.recv(1024)
 
                 # Enables custom raw commands
                 self.__conn.send('CAP REQ :twitch.tv/commands\r\n')
+                time.sleep(.5)
+                data = self.__conn.recv(1024)
 
-                self.__conn.recv(1024)
-                self.__recvThread.start()
+                # Enables tags
+                # self.__conn.send('CAP REQ :twitch.tv/tags\r\n')
+                # data = self.__conn.recv(1024)
+
+                self.__startThreads()
+
+                print "connected"
                 return
 
             try:
@@ -191,12 +212,19 @@ class IRC(object):
 
     def shutdown(self):
         self.__shutdown = True
+        self.close()
 
     """
     -----------------------------------------------------------------------------------------------
                                          Channel Functions
     -----------------------------------------------------------------------------------------------
     """
+
+    def joinChannel(self, channel):
+        self.joinChannels([channel])
+
+    def partChannel(self, channel):
+        self.partChannels([channel])
 
     def joinChannels(self, channels):
         if type(channels) != list:
@@ -207,10 +235,9 @@ class IRC(object):
             if self.overwriteSend:
                 self.__conn.send(cmd)
             else:
-                # TODO add to queue
-                pass
+                self.__joinQueue.put('JOIN #{channelName}\r\n'.format(channelName=channel))
 
-    def leaveChannels(self, channels):
+    def partChannels(self, channels):
         if type(channels) != list:
             raise TypeError("Channels must be type list")
 
@@ -219,8 +246,7 @@ class IRC(object):
             if self.overwriteSend:
                 self.__conn.send(cmd)
             else:
-                # TODO add to queue
-                pass
+                self.__joinQueue.put('PART #{channelName}\r\n'.format(channelName=channel))
 
     def getViewers(self, channel):
         """
@@ -244,6 +270,7 @@ class IRC(object):
                                        Communication Functions
     -----------------------------------------------------------------------------------------------
     """
+
     def onPing(self):
         self.__conn.sendall('PONG :tmi.twitch.tv\r\n')
 
@@ -275,8 +302,21 @@ class IRC(object):
         if self.overwriteSend:
             self.__conn.send(cmd)
         else:
-            # TODO add to queue
-            pass
+            self.__sendQueue.put(cmd)
+
+    def __startThreads(self):
+        # start recv'ing messages from IRC
+        self.__workers.append(threading.Thread(target=self.__recvWorker))
+
+        # start the join queue timer thread. 50 reqs per 15 secs
+        self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__joinQueue, 15, 50)))
+
+        # start the send queue timer thread. 20 commands per 30 secs
+        commands = 100 if self.__modBot else 20
+        self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__sendQueue, 30, commands)))
+
+        for t in self.__workers:
+            t.start()
 
     def __recvWorker(self):
         while self.__state == State.CONNECTED:
@@ -288,6 +328,35 @@ class IRC(object):
                 self.onReconnect()
             else:
                 self.onResponse(data)
+
+    def __ircCommandWorker(self, q, timeLimit, commandLimit):
+        """ Join channels given in the worker queue.
+            This function executes joins as given in queue. If the max rate is reached, it will sleep
+            until the new rate window is reached. Instead of strictly executing commands at .3 sec intervals
+            The limit is 50 JOINs per 15 seconds. https://help.twitch.tv/customer/portal/articles/1302780-twitch-irc
+            Ex: send 47 joins back to back: .7 secs total
+                request to join 6 channels: joins 3 channels (.3 secs total) and sleeps for 14 secs.
+                    then joins the other 3 channels
+        """
+        timeTrack = time.time()
+        commandsExecd = 0
+        while self.__state == State.CONNECTED:
+            command = q.get()
+            print '__ircCommandWorker:', command
+            secsPassed = time.time() - timeTrack
+            if secsPassed > timeLimit:
+                timeTrack = time.time()
+                commandsExecd = 0
+            elif secsPassed <= timeLimit and commandsExecd >= commandLimit:
+                time.sleep(timeLimit - secsPassed)
+                timeTrack = time.time()
+                commandsExecd = 0
+
+            if self.__state == State.CONNECTED:
+                self.__conn.send(command)
+            q.task_done()
+            commandsExecd += 1
+            time.sleep(.5)
 
     """
     -----------------------------------------------------------------------------------------------
@@ -305,8 +374,10 @@ class IRC(object):
         for key in sorted(REGEXS.iterkeys()):  # sort because onMessage replaces onCommand
             regex = REGEXS[key]
             if key == "onCommand":
-                regex = re.compile(
-                    regex.format(shebang=self.cmdShebang))  # TODO fix shebangs that create regex errors (^, \\, etc)
+                # TODO fix shebangs that create regex errors (^, \\, etc)
+                regex = re.compile(regex.format(shebang=self.cmdShebang))
+            elif key == "onIRCInfo":
+                regex = re.compile(regex.format(username=self.__username))
             else:
                 regex = re.compile(regex)
 
@@ -352,6 +423,15 @@ class IRC(object):
                 elif key == "onUserNotice":
                     # channel, message
                     self.onUserNotice(match.group(1), match.group(2))
+                elif key == "onUserState":
+                    # channel
+                    self.onUserState(match.group(1))
+                elif key == "onRoomState":
+                    # channel
+                    self.onRoomState(match.group(1))
+                elif key == "onIRCInfo":
+                    # channel
+                    self.onIRCInfo(match.group(1))
                 else:
                     # TODO got a match, but didn't handle callback
                     print "Didn't handle matched callback", key, regex
@@ -438,6 +518,30 @@ class IRC(object):
         notice from a user currently only used for re-subscription messages
         :param string channel:
         :param string message:
+        :return: None
+        """
+        return
+
+    def onUserState(self, channel):
+        """
+        state of this user in channel
+        :param string channel:
+        :return: None
+        """
+        return
+
+    def onRoomState(self, channel):
+        """
+        roomstate of channel
+        :param string channel:
+        :return: None
+        """
+        return
+
+    def onIRCInfo(self, line):
+        """
+        info from irc socket
+        :param string line:
         :return: None
         """
         return
