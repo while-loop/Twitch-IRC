@@ -247,10 +247,7 @@ class IRC(object):
         for channel in channels:
             cmd = "PART #{channel}\r\n".format(channel=channel)
             self.__channels.remove(channel)
-            if self.__overrideSend:
-                self.__conn.send(cmd)
-            else:
-                self.__joinQueue.put(cmd)
+            self.__conn.send(cmd)
 
     def getViewers(self, channel):
         """
