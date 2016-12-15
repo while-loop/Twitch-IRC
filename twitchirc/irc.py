@@ -163,6 +163,7 @@ class IRC(object):
                 self.__startThreads()
 
                 self.joinChannels(list(self.__channels))
+                print "connected"
                 return
 
             try:
