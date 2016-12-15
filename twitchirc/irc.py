@@ -235,7 +235,7 @@ class IRC(object):
             if self.overwriteSend:
                 self.__conn.send(cmd)
             else:
-                self.__joinQueue.put('JOIN #{channelName}\r\n'.format(channelName=channel))
+                self.__joinQueue.put(cmd)
 
     def partChannels(self, channels):
         if type(channels) != list:
@@ -246,7 +246,7 @@ class IRC(object):
             if self.overwriteSend:
                 self.__conn.send(cmd)
             else:
-                self.__joinQueue.put('PART #{channelName}\r\n'.format(channelName=channel))
+                self.__joinQueue.put(cmd)
 
     def getViewers(self, channel):
         """
