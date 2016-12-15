@@ -65,7 +65,7 @@ class IRC(object):
     JOIN = "JOIN"
     PART = "PART"
 
-    def __init__(self, oauthToken, username, modBot=False):
+    def __init__(self, oauthToken, username, overrideSend=False, modBot=False):
         """
         Setup and initialize the IRC object with the configurations given. Call connect() after the constructor
 
@@ -82,7 +82,7 @@ class IRC(object):
         self.__state = State.DISCONNECTED
 
         self.cmdShebang = "!"
-        self.overwriteSend = False
+        self.__overrideSend = overrideSend
 
         # Threads
         self.__shutdown = False
@@ -97,6 +97,7 @@ class IRC(object):
         self.__oauthToken = oauthToken
         self.__username = username.lower()  # usernames are lowercase
         self.__modBot = modBot
+        self.__channels = set()
 
     """
     -----------------------------------------------------------------------------------------------
@@ -161,7 +162,7 @@ class IRC(object):
 
                 self.__startThreads()
 
-                print "connected"
+                self.joinChannels(list(self.__channels))
                 return
 
             try:
@@ -232,7 +233,8 @@ class IRC(object):
 
         for channel in channels:
             cmd = "JOIN #{channel}\r\n".format(channel=channel)
-            if self.overwriteSend:
+            self.__channels.add(channel)
+            if self.__overrideSend:
                 self.__conn.send(cmd)
             else:
                 self.__joinQueue.put(cmd)
@@ -243,7 +245,8 @@ class IRC(object):
 
         for channel in channels:
             cmd = "PART #{channel}\r\n".format(channel=channel)
-            if self.overwriteSend:
+            self.__channels.remove(channel)
+            if self.__overrideSend:
                 self.__conn.send(cmd)
             else:
                 self.__joinQueue.put(cmd)
@@ -299,7 +302,7 @@ class IRC(object):
             if self.__state != State.CONNECTED:
                 raise IRCException("Disconnected from Twitch IRC server.")
 
-        if self.overwriteSend:
+        if self.__overrideSend:
             self.__conn.send(cmd)
         else:
             self.__sendQueue.put(cmd)
