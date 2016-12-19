@@ -7,8 +7,13 @@ class TestIRC(unittest.TestCase):
     def setUp(self):
         self.oauthToken = "oauthToken"
         self.oauthError = "Invalid Oauth token"
-        self.username = "username"
+        self.username = "uSerName"
         self.usernameError = "Invalid username"
+
+    def test_username_is_lowercase(self):
+        chat = IRC(self.oauthToken, self.username)
+        self.assertIsNotNone(chat, "IRC returned None object")
+        self.assertTrue(chat.getUsername().islower(), "Username not lowercase")
 
     def test_unicode_oauth_token_passes(self):
         chat = IRC(unicode(self.oauthToken), self.username)
