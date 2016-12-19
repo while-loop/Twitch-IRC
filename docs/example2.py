@@ -37,7 +37,7 @@ class MyIRC(IRC):
         :param string username:
         :param boolean overrideSend:
         """
-        super(MyIRC, self).__init__(oauthToken, username, overrideSend=overrideSend, cmdShebang=customshebang))
+        super(MyIRC, self).__init__(oauthToken, username, overrideSend=overrideSend, cmdShebang=customshebang)
         self.mDB = MockDAO()
 
     def onResponse(self, line):
