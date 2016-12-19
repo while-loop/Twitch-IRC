@@ -65,7 +65,7 @@ class IRC(object):
     JOIN = "JOIN"
     PART = "PART"
 
-    def __init__(self, oauthToken, username, overrideSend=False, modBot=False):
+    def __init__(self, oauthToken, username, overrideSend=False, modBot=False, cmdShebang="!"):
         """
         Setup and initialize the IRC object with the configurations given. Call connect() after the constructor
 
@@ -78,10 +78,10 @@ class IRC(object):
             raise TypeError("Invalid username")
 
         # Networks
-        self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__conn = self.createSocket()
         self.__state = State.DISCONNECTED
 
-        self.cmdShebang = "!"
+        self.cmdShebang = cmdShebang
         self.__overrideSend = overrideSend
 
         # Threads
@@ -153,7 +153,7 @@ class IRC(object):
 
                 # Enables custom raw commands
                 self.__conn.send('CAP REQ :twitch.tv/commands\r\n')
-                time.sleep(.5)
+                time.sleep(.25)
                 data = self.__conn.recv(1024)
 
                 # Enables tags
@@ -175,6 +175,9 @@ class IRC(object):
 
         # if we get here, we didn't get a response from the server within the timeout limit
         raise IRCException("Unable to receive authentication response from the Twitch IRC server")
+
+    def createSocket(self):
+        return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def onReconnect(self):
         self.__state = State.RECONNECTING
@@ -266,6 +269,9 @@ class IRC(object):
         ret = {'viewers': data.pop('chatters'), 'count': data['chatter_count']}
         return ret
 
+    def getUsername(self):
+        return self.__username
+
     """
     -----------------------------------------------------------------------------------------------
                                        Communication Functions
@@ -315,7 +321,8 @@ class IRC(object):
 
             # start the send queue timer thread. 20 commands per 30 secs
             commands = 100 if self.__modBot else 20
-            self.__workers.append(threading.Thread(target=self.__ircCommandWorker, args=(self.__sendQueue, 30, commands)))
+            self.__workers.append(
+                threading.Thread(target=self.__ircCommandWorker, args=(self.__sendQueue, 30, commands)))
 
         for t in self.__workers:
             t.start()

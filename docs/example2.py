@@ -30,14 +30,14 @@ from twitchirc.irc import IRC, REGEXS
 
 
 class MyIRC(IRC):
-    def __init__(self, oauthToken, username, overrideSend=False):
+    def __init__(self, oauthToken, username, overrideSend=False, customshebang="!"):
         """
         Constructor to set up IRC and a custom DAO
         :param string oauthToken:
         :param string username:
         :param boolean overrideSend:
         """
-        super(MyIRC, self).__init__(oauthToken, username, overrideSend=overrideSend)
+        super(MyIRC, self).__init__(oauthToken, username, overrideSend=overrideSend, cmdShebang=customshebang))
         self.mDB = MockDAO()
 
     def onResponse(self, line):
@@ -115,7 +115,7 @@ class MockDAO(object):
 
 if __name__ == '__main__':
     # construct IRC with oauth and twitch username
-    tIRC = MyIRC("oauth:abcdefghijklmnopqrstuvwxyz", "username", overrideSend=True)
+    tIRC = MyIRC("oauth:abcdefghijklmnopqrstuvwxyz", "username", overrideSend=True, customshebang="#")
 
     try:
         tIRC.connect()  # connect to the irc server and login
