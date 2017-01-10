@@ -36,13 +36,13 @@ Example of simple chat bot [here](docs/echo.py).
 Example of complex chat bot [here](docs/example2.py).
 
 #### Note
-For better efficiency, try to distribute channel loads to multiple bot instances on different IPs and connections
+    For better efficiency, try to distribute channel loads to multiple bot instances on different IPs and connections
 
-Ex: 2 servers running 8 instances of Twitch-IRC each.
-208 channels in use. Each bot would manage 13 channels.
+    Ex: 2 servers running 8 instances of Twitch-IRC each.
+    208 channels in use. Each bot would manage 13 channels.
 
-Each bot would be able to send 20messages/30secs (100/30 for Mod bots) totaling 320messages/30secs (1600/30)
-across all bots.
+    Each bot would be able to send 20messages/30secs (100/30 for Mod bots) totaling 320messages/30secs (1600/30)
+    across all bots.
 
 [source1](https://discuss.dev.twitch.tv/t/max-messages-per-user-channel-ip/6321/3)
 [source2](https://discuss.dev.twitch.tv/t/twitch-chat-limitations-for-mod-bots/986/13)
