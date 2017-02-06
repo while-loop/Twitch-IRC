@@ -51,7 +51,8 @@ Future Updates / TODO
 ---------------------
 - Transparent Server reconnection (Needs testing)
 - Well [tested](tests/) and [documented](docs/)
-- SSL
+- SSL/TLS
+- Twitch IRC Tags
 - Receive and parse Tags from twitch channel
 
 Changelog
