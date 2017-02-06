@@ -11,7 +11,7 @@ setup(
     url='https://github.com/while-loop/Twitch-IRC',
     packages=['twitchirc'],
     scripts=[],
-    install_requires=["mock==2.0.0"],
+    install_requires=["mock==2.0.0", "enum==0.4.6"],
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
